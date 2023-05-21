@@ -1,0 +1,135 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+  <style>
+    h1 {text-align: center;}
+    p {text-align: center;}
+  </style>
+
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+</head>
+<body>
+
+  <h1>LEILÃO</h1>
+
+  <!-- create menu header -->
+  <button onclick="form_cadastro_usuario()">CADASTRAR USUÁRIO</button>
+  <button onclick="listar_produtos()">LISTAR PRODUTOS</button>
+  <button onclick="form_cadastrar_produto()">CADASTRAR PRODUTO</button>
+  <button onclick="dar_lance()">DAR LANCE</button>
+
+  <br><br><br>
+  <div id="cadastro_usuario" style="display: none;">
+      <input type="text" name="nome" placeholder="Nome"><br>
+      <button onclick="cadastrar_usuario()">Cadastrar</button>
+  </div>
+
+  <div id="listar_produtos" style="display: none;"></div>
+
+  <div id="cadastro_produto" style="display: none;">
+      <input type="text" name="usuario" placeholder="Usuario"><br>
+      <input type="text" name="codigo" placeholder="Codigo"><br>
+      <input type="text" name="nome_produto" placeholder="Nome do Produto"><br>
+      <input type="text" name="descricao" placeholder="Descricao"><br>
+      <input type="number" name="lance_inicial" placeholder="Lance inicial"><br>
+      <input type="number" name="duracao" placeholder="Duração"><br>
+      <button onclick="cadastrar_produto()">Cadastrar</button>
+  </div>
+
+  <p id="log"></p>
+
+  
+  <script>
+    var usuario = null;
+    
+    function getElementByXpath(path) {
+      return document.evaluate(path, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+    }
+    function log(text) {
+      document.getElementById("log").innerHTML = text;
+      console.log(text);
+    }
+
+    function hidden_all(){
+      document.getElementById("cadastro_usuario").style.display = "none";
+      document.getElementById("listar_produtos").style.display = "none";
+      document.getElementById("cadastro_produto").style.display = "none";
+
+      log("");
+    }
+
+    function form_cadastro_usuario(){
+      hidden_all();
+      document.getElementById("cadastro_usuario").style.display = "contents";
+    }
+
+    function cadastrar_usuario() {
+
+      const nome = getElementByXpath("//div[@id='cadastro_usuario']/input[@name='nome']").value;
+
+      
+      url = 'http://localhost:5000/usuario/' + nome;
+
+      axios.post(url).then(function (response) {
+        log(response.data.message);
+        usuario = nome;
+      }).catch(function (error) {
+        log(error.response.data.message);
+      });
+    }
+
+    function listar_produtos() {
+      hidden_all();
+      document.getElementById("listar_produtos").style.display = "contents";
+
+      url = 'http://localhost:5000/produtos';
+
+      axios.get(url).then(function (response) {
+        div_produtos = document.getElementById("listar_produtos");
+        div_produtos.innerHTML = "";
+        for (var i = 0; i < response.data.length; i++) {
+          div_produtos.innerHTML += response.data[i].nome + "<br>";
+        }
+      }).catch(function (error) {
+        log(error);
+      });
+    }
+
+    function form_cadastrar_produto(){
+      hidden_all();
+      document.getElementById("cadastro_produto").style.display = "contents";
+
+      input_usuario = document.getElementById("cadastro_produto").getElementsByTagName("input")[0];
+      // log(usuario);
+      input_usuario.style.display = usuario ? "none" : "initial";
+    }
+
+    function extract_product_data(){
+      return {
+        usuario: usuario || getElementByXpath("//div[@id='cadastro_produto']/input[@name='usuario']").value,
+        codigo: getElementByXpath("//div[@id='cadastro_produto']/input[@name='codigo']").value,
+        nome: getElementByXpath("//div[@id='cadastro_produto']/input[@name='nome_produto']").value,
+        descricao: getElementByXpath("//div[@id='cadastro_produto']/input[@name='descricao']").value,
+        preco_inicial: +getElementByXpath("//div[@id='cadastro_produto']/input[@name='lance_inicial']").value,
+        duracao: +getElementByXpath("//div[@id='cadastro_produto']/input[@name='duracao']").value,
+      }
+    }
+    function cadastrar_produto(){
+      var data = extract_product_data();
+
+      log(data);
+
+      url = 'http://localhost:5000/produtos';
+
+      axios.post(url, data).then(function (response) {
+        log(response.data.message);
+      }).catch(function (error) {
+        log(error.response.data.message);
+      });
+    }
+
+  </script>
+
+</body>
+
+</html>
