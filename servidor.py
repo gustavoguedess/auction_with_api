@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify
+from flask_sse import sse
 from datetime import datetime, timedelta
 from threading import Thread
 from flask_cors import CORS
@@ -6,31 +7,37 @@ from flask_cors import CORS
 import time
 
 app = Flask(__name__)
+app.config["REDIS_URL"] = "redis://localhost"
+app.register_blueprint(sse, url_prefix='/stream')
+
 cors = CORS(app)
 
 class Produto:
-    def __init__(self, codigo, nome, descricao, preco_inicial, duracao, cliente):
+    def __init__(self, codigo, nome, descricao, preco_inicial, duracao, criador):
         self.codigo = codigo
         self.nome = nome
         self.descricao = descricao
         self.tempo_final = datetime.now() + timedelta(seconds=duracao) 
         self.lance = preco_inicial
         self.comprador = ""
+        self.interessados = [criador]
 
     def set_lance(self, valor, usuario):
         if valor > self.lance or (valor >= self.lance and self.comprador==""):
             self.lance = valor
             self.comprador = usuario
+            if usuario not in self.interessados:
+                self.interessados.append(usuario)
 
-            #TODO enviar notificação
+            for interessado in self.interessados:
+                sse.publish(f"Novo lance no produto {self.nome} de R${self.lance}!", type='notificao', channel=interessado)
 
             return True
         return False
     
     def finalizar_produto(self):
-        #TODO enviar notificação
-
-        print(f"Produto {self.nome} expirou. O comprador foi {self.comprador} com o valor de R$ {self.lance}")
+        for interessado in self.interessados:
+            sse.publish(f"Produto {self.nome} expirou. O comprador foi {self.comprador} com o valor de R$ {self.lance}!", type='notificao', channel=interessado)
         
     def disponivel(self):
         return self.tempo_final > datetime.now()
@@ -53,6 +60,9 @@ class Leilao:
 
         produto = Produto(codigo, nome, descricao, preco_inicial, duracao, usuario)
         self.produtos.append(produto)
+
+        for cliente in self.clientes:
+            sse.publish(f"Novo produto cadastrado: {produto.nome}! Lance inicial de R$ {produto.lance}!", type='notificao', channel=cliente)
 
         return "SUCCESS"
     
@@ -167,6 +177,6 @@ def get_produtos():
     return jsonify(produtos), 200
 
 if __name__ == '__main__':
-    # Thread(target=main).start()
+    Thread(target=main).start()
 
     app.run(host='localhost', port=5000, debug=True)

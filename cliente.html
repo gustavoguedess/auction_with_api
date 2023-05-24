@@ -35,6 +35,7 @@
     </style>
 
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/event-source-polyfill/0.0.9/  eventsource.min.js"></script>
 </head>
 <body>
 
@@ -73,6 +74,9 @@
 
 <p id="log"></p>
 
+<div id="notificacoes" style="position: fixed; bottom: 0; width: 100%; text-align: center;">
+
+</div>
 
 <script>
     const BASE_URL = 'http://localhost:5000';
@@ -80,6 +84,18 @@
 
     function getElementByXpath(path) {
         return document.evaluate(path, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+    }
+
+    function conectar_sse(){
+      const es = new EventSource("http://localhost:5000/stream?channel="+usuario);
+
+      const listener = function (event) {
+        const type = event.type;
+ 
+        console.log(`${type}: ${event.data || es.url}`);
+      };
+ 
+      es.addEventListener('notificao', listener);
     }
 
     function log(text) {
@@ -110,6 +126,8 @@
         axios.post(url).then(function (response) {
             log(response.data.message);
             usuario = nome;
+            conectar_sse();
+
         }).catch(function (error) {
             log(error.response.data.message);
         });
@@ -144,7 +162,6 @@
             }
             table += '</table>';
             div_produtos.innerHTML = table;
-            console.log(div_produtos.innerHTML);
         }).catch(function (error) {
             log(error);
         });
