@@ -34,8 +34,16 @@
         }
     </style>
 
+    <!-- Hidden notificacao after 5 seconds -->
+    <script>
+        setTimeout(function () {
+            document.getElementById("notificacao").style.display = "none";
+        }, 5000);
+    </script>
+
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/event-source-polyfill/0.0.9/  eventsource.min.js"></script>
+    <!-- TODO: Bliblioteca abaixo retorna 404 -->
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/event-source-polyfill/0.0.9/  eventsource.min.js"></script> -->
 </head>
 <body>
 
@@ -75,7 +83,12 @@
 <p id="log"></p>
 
 <div id="notificacoes" style="position: fixed; bottom: 0; width: 100%; text-align: center;">
-
+    <div id="notificacao" style="background-color: #c2eb7b;padding: 10px; border-radius: 6px; width: 450px; margin: auto; margin-bottom: 10px; display: block;">
+        <span id="message">Bem vindo ao Leilão!</span>
+        <!-- Background button transparent -->
+        <button id="close-button" style="float: right; background-color: transparent; border-radius: 5px; border: none; padding: 5px;" onclick="this.parentElement.style.display='none'"
+        >X</button>
+    </div>
 </div>
 
 <script>
@@ -86,29 +99,46 @@
         return document.evaluate(path, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
     }
 
+    function nova_notificacao(mensagem, tipo){
+        console.log("Notificando: "+mensagem);
+        const div = document.getElementById("notificacao");
+        const clone = div.cloneNode(true);
+        
+        clone.querySelector("#message").innerHTML = mensagem;
+        
+        if(tipo == "erro"){
+            clone.style.backgroundColor = "#ff7b7b";
+        }
+        
+        clone.style.display = "block";
+        setTimeout(function () {
+            clone.style.display = "none";
+        }, 15000);
+
+        document.getElementById("notificacoes").appendChild(clone);
+    }
+
     function conectar_sse(){
       const es = new EventSource("http://localhost:5000/stream?channel="+usuario);
 
       const listener = function (event) {
         const type = event.type;
  
-        console.log(`${type}: ${event.data || es.url}`);
+        console.log(`SSE: ${type}: ${event.data || es.url}`);
+        const message = event.data;
+        
+        nova_notificacao(message);
       };
  
       es.addEventListener('notificao', listener);
     }
 
-    function log(text) {
-        document.getElementById("log").innerHTML = text;
-    }
 
     function hidden_all() {
         document.getElementById("cadastro_usuario").style.display = "none";
         document.getElementById("listar_produtos").style.display = "none";
         document.getElementById("cadastro_produto").style.display = "none";
         document.getElementById("fazer_lance").style.display = "none";
-
-        log("");
     }
 
     function form_cadastro_usuario() {
@@ -122,14 +152,18 @@
 
 
         const url = `${BASE_URL}/usuario/${nome}`;
-
+        console.log(url);
         axios.post(url).then(function (response) {
-            log(response.data.message);
+            mensagem = response.data.message;
+            console.log(mensagem);
+            nova_notificacao(mensagem);
             usuario = nome;
             conectar_sse();
 
         }).catch(function (error) {
-            log(error.response.data.message);
+            mensagem = error.response.data.message;
+            console.log(mensagem);
+            nova_notificacao(mensagem, "erro");
         });
     }
 
@@ -163,7 +197,7 @@
             table += '</table>';
             div_produtos.innerHTML = table;
         }).catch(function (error) {
-            log(error);
+            console.log(error);
         });
     }
 
@@ -200,9 +234,9 @@
         const url = `${BASE_URL}/produtos`;
 
         axios.post(url, data).then(function (response) {
-            log(response.data.message);
+            console.log(response.data.message);
         }).catch(function (error) {
-            log(error.response.data.message);
+            console.log(error.response.data.message);
         });
     }
 
@@ -220,9 +254,10 @@
         const url = `${BASE_URL}/lance`;
 
         axios.post(url, data).then(function (response) {
-            log(response.data.message);
+            console.log(response.data.message);
         }).catch(function (error) {
-            log(error.response.data.message);
+            console.log(error.response.data.message);
+            nova_notificacao(error.response.data.message, "erro");
         });
     }
 

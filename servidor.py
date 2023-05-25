@@ -3,6 +3,7 @@ from flask_sse import sse
 from datetime import datetime, timedelta
 from threading import Thread
 from flask_cors import CORS
+import requests
 
 import time
 
@@ -37,7 +38,11 @@ class Produto:
     
     def finalizar_produto(self):
         for interessado in self.interessados:
-            sse.publish(f"Produto {self.nome} expirou. O comprador foi {self.comprador} com o valor de R$ {self.lance}!", type='notificao', channel=interessado)
+            if self.comprador == "":
+                mensagem = f"Produto {self.nome} expirou. Nenhum comprador :("
+            else:
+                mensagem = f"Produto {self.nome} expirou. O comprador foi {self.comprador} com o valor de R$ {self.lance}!"
+            sse.publish(mensagem, type='notificao', channel=interessado)
         
     def disponivel(self):
         return self.tempo_final > datetime.now()
@@ -69,6 +74,7 @@ class Leilao:
     def remove_produto(self, codigo):
         for produto in self.produtos:
             if produto.codigo == codigo:
+                produto.finalizar_produto()
                 self.produtos.remove(produto)
                 return True
         return False
@@ -100,17 +106,19 @@ class Leilao:
                 return "INVALID_VALUE"
         return "PRODUCT_NOT_FOUND"
 
-
 def main():
     print("Servidor de leilão iniciado")
 
     while True:
-        print('rodando')
         for produto in leilao.produtos:
             if not produto.disponivel():
-                print('produto indisponivel')
-                produto.finalizar_produto()
-                leilao.remove_produto(produto.codigo)
+                print(F"Produto {produto.nome} expirou. O comprador foi {produto.comprador} com o valor de R$ {produto.lance}!")
+                
+                url = "http://localhost:5000/produto"
+                payload = {
+                    "codigo": produto.codigo
+                }
+                requests.delete(url, json=payload)
         time.sleep(5)
 
 
@@ -129,7 +137,7 @@ def cadastro(user):
     
     leilao.add_cliente(user)
 
-    return jsonify({"message": "Usuário cadastrado com sucesso! :)"}), 200
+    return jsonify({"message": f"Usuário {user} cadastrado com sucesso! :)"}), 200
 
 # receive query
 @app.route('/lance', methods=['POST'])
@@ -175,6 +183,23 @@ def cadastro_produto():
 def get_produtos():
     produtos = leilao.get_produtos()
     return jsonify(produtos), 200
+
+@app.route('/produto', methods=['DELETE'])
+def remove_produto():
+    data = request.json
+
+    try:
+        codigo = data['codigo']
+    except Exception as e:
+        return jsonify({'error': 'Schema error'}), 400
+
+    status = leilao.remove_produto(codigo)
+
+    if status:
+        return jsonify({"message": "Produto removido com sucesso! :)"}), 200
+    else:
+        return jsonify({"message": "Produto não encontrado"}), 400
+
 
 if __name__ == '__main__':
     Thread(target=main).start()
